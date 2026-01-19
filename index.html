@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polymarket Trader Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Polymarket Trader Dashboard</h1>
+            <div class="header-controls">
+                <div class="refresh-indicator">
+                    <span class="pulse"></span>
+                    <span id="last-update">Last update: --</span>
+                </div>
+                <div class="refresh-controls">
+                    <label for="refresh-interval">Auto-refresh:</label>
+                    <select id="refresh-interval">
+                        <option value="30000">30 seconds</option>
+                        <option value="60000" selected>1 minute</option>
+                        <option value="300000">5 minutes</option>
+                        <option value="0">Manual</option>
+                    </select>
+                    <button id="refresh-btn" class="btn-primary">Refresh Now</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="stats-overview">
+            <div class="stat-card">
+                <h3>Total Watchlist</h3>
+                <p id="total-traders">23</p>
+            </div>
+            <div class="stat-card">
+                <h3>Combined Portfolio Value</h3>
+                <p id="combined-value">$0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Total Volume</h3>
+                <p id="total-volume">$0</p>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="theme-compare">Theme Compare</button>
+            <button class="tab-btn" data-tab="positions">Positions</button>
+            <button class="tab-btn" data-tab="markets">Market Categories</button>
+            <button class="tab-btn" data-tab="top-wins">Top Profit</button>
+            <button class="tab-btn" data-tab="discover">Discover Traders</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="filter-bars-container">
+                <div class="strategy-filter-bar">
+                    <span class="filter-label">Strategy:</span>
+                    <div class="strategy-filter-buttons">
+                        <button class="strategy-filter-btn active" data-strategy="all">All</button>
+                        <button class="strategy-filter-btn" data-strategy="arbitrage">Arbitrage</button>
+                        <button class="strategy-filter-btn" data-strategy="liquidity">Liquidity</button>
+                        <button class="strategy-filter-btn" data-strategy="quant">Quant</button>
+                        <button class="strategy-filter-btn" data-strategy="meta">Meta</button>
+                        <button class="strategy-filter-btn" data-strategy="eventDriven">Event-Driven</button>
+                        <button class="strategy-filter-btn" data-strategy="conviction">Conviction</button>
+                        <button class="strategy-filter-btn" data-strategy="momentum">Momentum</button>
+                        <button class="strategy-filter-btn" data-strategy="conservative">Conservative</button>
+                    </div>
+                </div>
+                <div class="market-filter-bar">
+                    <span class="filter-label">Market:</span>
+                    <div class="market-filter-buttons">
+                        <button class="market-filter-btn active" data-market="all">All</button>
+                        <button class="market-filter-btn" data-market="politics">Politics</button>
+                        <button class="market-filter-btn" data-market="crypto">Crypto</button>
+                        <button class="market-filter-btn" data-market="sports">Sports</button>
+                        <button class="market-filter-btn" data-market="science">Science & Tech</button>
+                        <button class="market-filter-btn" data-market="entertainment">Entertainment</button>
+                        <button class="market-filter-btn" data-market="business">Business</button>
+                        <button class="market-filter-btn" data-market="world">World Events</button>
+                        <button class="market-filter-btn" data-market="weather">Weather</button>
+                    </div>
+                </div>
+            </div>
+            <div class="filters">
+                <div class="search-input-wrapper">
+                    <input type="text" id="search-traders" placeholder="Search traders...">
+                    <button type="button" id="clear-search-btn" class="clear-search-btn" title="Clear search">&times;</button>
+                </div>
+                <select id="sort-by">
+                    <option value="pnl">Sort by PnL</option>
+                    <option value="portfolio">Sort by Portfolio Value</option>
+                    <option value="volume">Sort by Volume</option>
+                    <option value="name">Sort by Name</option>
+                    <option value="strategy">Sort by Strategy</option>
+                </select>
+                <select id="sort-order">
+                    <option value="desc">Descending</option>
+                    <option value="asc">Ascending</option>
+                </select>
+            </div>
+            <div id="traders-grid" class="traders-grid">
+                <!-- Trader cards will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Theme Compare Tab -->
+        <div id="theme-compare" class="tab-content">
+            <div class="theme-compare-header">
+                <h2>Compare Traders by Theme</h2>
+                <p class="theme-compare-description">View multiple traders on a single chart, grouped by market category.</p>
+            </div>
+
+            <!-- Timeframe Toggle -->
+            <div class="theme-compare-controls">
+                <div class="theme-timeframe-toggle">
+                    <button class="theme-timeframe-btn" data-timeframe="1D">1D</button>
+                    <button class="theme-timeframe-btn" data-timeframe="1W">1W</button>
+                    <button class="theme-timeframe-btn active" data-timeframe="1M">1M</button>
+                    <button class="theme-timeframe-btn" data-timeframe="ALL">ALL</button>
+                </div>
+            </div>
+
+            <!-- Theme Charts Grid -->
+            <div id="theme-charts-grid" class="theme-charts-grid">
+                <!-- Theme chart cards will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Positions Tab -->
+        <div id="positions" class="tab-content">
+            <div class="positions-header">
+                <select id="positions-trader-select">
+                    <option value="">Select a trader...</option>
+                </select>
+                <div class="position-filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="active">Active</button>
+                    <button class="filter-btn" data-filter="resolved">Resolved</button>
+                </div>
+            </div>
+            <div id="positions-list" class="positions-list">
+                <p class="placeholder">Select a trader to view their positions</p>
+            </div>
+        </div>
+
+        <!-- Markets Tab -->
+        <div id="markets" class="tab-content">
+            <div class="markets-overview">
+                <div id="market-categories" class="market-categories">
+                    <!-- Market category cards will be inserted here -->
+                </div>
+            </div>
+            <div id="trader-market-breakdown" class="trader-market-breakdown">
+                <h3>Trader Market Breakdown</h3>
+                <div id="breakdown-list"></div>
+            </div>
+        </div>
+
+        <!-- Top Wins Tab -->
+        <div id="top-wins" class="tab-content">
+            <div class="top-wins-header">
+                <h2>Biggest Winners</h2>
+                <p class="top-wins-description">See the traders with the biggest profits this week and month.</p>
+            </div>
+
+            <!-- Time Period Toggle -->
+            <div class="top-wins-time-toggle">
+                <button class="top-wins-time-btn" data-period="WEEK">This Week</button>
+                <button class="top-wins-time-btn active" data-period="MONTH">This Month</button>
+                <button class="top-wins-time-btn" data-period="DAY">Today</button>
+            </div>
+
+            <!-- Top Winners List -->
+            <div class="top-wins-container">
+                <div class="top-wins-list">
+                    <div class="top-wins-list-header">
+                        <div class="tw-col-rank">Rank</div>
+                        <div class="tw-col-trader">Trader</div>
+                        <div class="tw-col-pnl">Profit</div>
+                        <div class="tw-col-volume">Volume</div>
+                        <div class="tw-col-actions">Actions</div>
+                    </div>
+                    <div id="top-wins-list-body" class="top-wins-list-body">
+                        <p class="placeholder">Loading top winners...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Discover Tab -->
+        <div id="discover" class="tab-content">
+            <div class="discover-header">
+                <h2>Leaderboard</h2>
+                <p class="discover-description">Discover top traders on Polymarket by profit or volume.</p>
+            </div>
+
+            <!-- Search Section -->
+            <div class="search-section">
+                <h3>Search Any Trader</h3>
+                <p class="search-description">Search by username or paste any wallet address to find traders - even those not on the leaderboard.</p>
+                <div class="search-input-group">
+                    <div class="search-input-wrapper">
+                        <input type="text" id="trader-search-input" placeholder="Enter username or wallet address (0x...)">
+                        <button type="button" id="clear-trader-search-btn" class="clear-search-btn" title="Clear search">&times;</button>
+                    </div>
+                    <button id="trader-search-btn" class="btn-primary">Search</button>
+                </div>
+                <div id="search-results" class="search-results">
+                    <p class="placeholder">Enter a username or wallet address to search</p>
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Polymarket-style Leaderboard -->
+            <div class="leaderboard-container">
+                <!-- Time Period Tabs -->
+                <div class="leaderboard-time-tabs">
+                    <button class="leaderboard-time-btn" data-period="DAY">Today</button>
+                    <button class="leaderboard-time-btn" data-period="WEEK">Weekly</button>
+                    <button class="leaderboard-time-btn active" data-period="MONTH">Monthly</button>
+                    <button class="leaderboard-time-btn" data-period="ALL">All-time</button>
+                </div>
+
+                <!-- Category Pills -->
+                <div class="leaderboard-category-pills">
+                    <button class="leaderboard-category-btn active" data-category="OVERALL">All Categories</button>
+                    <button class="leaderboard-category-btn" data-category="POLITICS">Politics</button>
+                    <button class="leaderboard-category-btn" data-category="SPORTS">Sports</button>
+                    <button class="leaderboard-category-btn" data-category="CRYPTO">Crypto</button>
+                    <button class="leaderboard-category-btn" data-category="FINANCE">Finance</button>
+                    <button class="leaderboard-category-btn" data-category="TECH">Tech</button>
+                    <button class="leaderboard-category-btn" data-category="CULTURE">Culture</button>
+                    <button class="leaderboard-category-btn" data-category="ECONOMICS">Economics</button>
+                    <button class="leaderboard-category-btn" data-category="WORLD">World</button>
+                    <button class="leaderboard-category-btn" data-category="CLIMATE">Climate & Science</button>
+                </div>
+
+                <!-- Sort Toggle -->
+                <div class="leaderboard-sort-toggle">
+                    <button class="leaderboard-sort-btn active" data-sort="PNL">Profit/Loss</button>
+                    <button class="leaderboard-sort-btn" data-sort="VOL">Volume</button>
+                </div>
+
+                <!-- Leaderboard Table -->
+                <div class="leaderboard-table-container">
+                    <div class="leaderboard-table-header">
+                        <div class="lb-col-rank">Rank</div>
+                        <div class="lb-col-trader">Trader</div>
+                        <div class="lb-col-pnl">Profit/Loss</div>
+                        <div class="lb-col-volume">Volume</div>
+                        <div class="lb-col-actions">Actions</div>
+                    </div>
+                    <div id="leaderboard-table-body" class="leaderboard-table-body">
+                        <p class="placeholder">Loading leaderboard...</p>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="leaderboard-pagination">
+                    <button id="lb-prev-btn" class="lb-page-btn" disabled>Previous</button>
+                    <span id="lb-page-info" class="lb-page-info">Page 1</span>
+                    <button id="lb-next-btn" class="lb-page-btn">Next</button>
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Watchlist Actions -->
+            <div class="discover-actions">
+                <button id="add-all-btn" class="btn-secondary" disabled>Add All Visible to Watchlist</button>
+                <button id="replace-all-btn" class="btn-warning" disabled>Replace Watchlist</button>
+            </div>
+
+            <div class="current-watchlist">
+                <h3>Current Watchlist (<span id="watchlist-count">0</span> traders)</h3>
+                <div id="watchlist-grid" class="watchlist-grid">
+                    <!-- Watchlist items will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Trader Detail Modal -->
+        <div id="trader-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <div id="modal-body">
+                    <!-- Modal content will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="traders.js"></script>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

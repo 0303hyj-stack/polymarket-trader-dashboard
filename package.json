@@ -1,0 +1,19 @@
+{
+  "name": "polymarket-trader-dashboard",
+  "version": "1.0.0",
+  "description": "Real-time dashboard to track Polymarket traders' PnL, positions, and market categories",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "polymarket",
+    "trading",
+    "dashboard",
+    "crypto",
+    "prediction-markets"
+  ],
+  "author": "",
+  "license": "MIT"
+}
