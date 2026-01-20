@@ -12,7 +12,6 @@ const STORAGE_KEY = 'polymarket_watchlist';
 const elements = {
     tradersGrid: document.getElementById('traders-grid'),
     totalTraders: document.getElementById('total-traders'),
-    combinedValue: document.getElementById('combined-value'),
     totalVolume: document.getElementById('total-volume'),
     lastUpdate: document.getElementById('last-update'),
     refreshBtn: document.getElementById('refresh-btn'),
@@ -853,12 +852,10 @@ function updateOverviewStats() {
     // Use watchlist.length as the source of truth for total traders count
     // since tradersData might be loading
     elements.totalTraders.textContent = watchlist.length;
-    elements.combinedValue.textContent = formatCurrency(totalValue);
 
-    // Update total volume if element exists
-    const totalVolumeEl = document.getElementById('total-volume');
-    if (totalVolumeEl) {
-        totalVolumeEl.textContent = formatCurrency(totalVolume);
+    // Update total volume
+    if (elements.totalVolume) {
+        elements.totalVolume.textContent = formatCurrency(totalVolume);
     }
 
     // Update filter button counts
