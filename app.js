@@ -1323,6 +1323,12 @@ function initDiscoverListeners() {
         replaceAllBtn.addEventListener('click', replaceWatchlist);
     }
 
+    // Export watchlist button
+    const exportWatchlistBtn = document.getElementById('export-watchlist-btn');
+    if (exportWatchlistBtn) {
+        exportWatchlistBtn.addEventListener('click', exportWatchlist);
+    }
+
     // Search traders functionality
     if (traderSearchBtn) {
         traderSearchBtn.addEventListener('click', searchTraders);
@@ -1917,6 +1923,40 @@ function saveWatchlist() {
     }
 }
 
+function exportWatchlist() {
+    // Generate traders.js format
+    const tradersCode = watchlist.map(t => `    {
+        id: '${t.id || t.name}',
+        name: '${t.name}',
+        displayName: '${t.displayName || t.name}',
+        wallet: '${t.wallet}',
+        profileUrl: '${t.profileUrl || `https://polymarket.com/@${t.name}`}',
+        joinDate: '${t.joinDate || 'Unknown'}'
+    }`).join(',\n');
+
+    const fullCode = `const TRADERS = [\n${tradersCode}\n];`;
+
+    // Create a modal to show the export
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
+            <h2>Export Watchlist (${watchlist.length} traders)</h2>
+            <p>Copy the code below and replace the TRADERS array in traders.js:</p>
+            <textarea id="export-code" style="width: 100%; height: 400px; font-family: monospace; font-size: 12px; padding: 10px;">${fullCode}</textarea>
+            <button onclick="document.getElementById('export-code').select(); document.execCommand('copy'); alert('Copied to clipboard!');" class="btn-primary" style="margin-top: 10px;">Copy to Clipboard</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+}
+
 function loadWatchlist() {
     try {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -1960,22 +2000,15 @@ function groupTradersByTheme() {
         const categories = trader.marketCategories || {};
         if (Object.keys(categories).length === 0) continue;
 
-        // Find the primary category (highest value or count)
-        let primaryTheme = 'other';
-        let maxValue = 0;
-
+        // Add trader to ALL categories they have exposure to (not just primary)
         for (const [cat, data] of Object.entries(categories)) {
-            const value = data.value || data.count || 0;
-            if (value > maxValue) {
-                maxValue = value;
-                primaryTheme = cat;
+            if (data.count > 0 || data.value > 0) {
+                if (!themeGroups[cat]) {
+                    themeGroups[cat] = [];
+                }
+                themeGroups[cat].push(trader);
             }
         }
-
-        if (!themeGroups[primaryTheme]) {
-            themeGroups[primaryTheme] = [];
-        }
-        themeGroups[primaryTheme].push(trader);
     }
 
     // Sort traders within each group by total PnL (descending)
