@@ -508,7 +508,7 @@ const MARKET_CATEGORIES = {
         color: 'business'
     },
     world: {
-        name: 'World Events',
+        name: 'Geopolitics/War',
         keywords: ['war', 'ukraine', 'russia', 'china', 'israel', 'gaza', 'iran', 'north korea', 'nato', 'un', 'treaty', 'sanctions', 'military', 'conflict'],
         color: 'world'
     },
