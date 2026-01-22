@@ -2436,7 +2436,7 @@ async function init() {
     initThemeCompareListeners();
     setupAutoRefresh();
     updateWatchlistDisplay();
-    await loadData(true);
+    await loadData(false);
 }
 
 // Start the app
