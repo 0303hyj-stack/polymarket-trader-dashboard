@@ -5,6 +5,9 @@ let discoveredTraders = [];
 let refreshInterval = null;
 let isLoading = false;
 
+// Theme Compare state - tracks selected traders per theme (default: top 3)
+let themeSelectedTraders = {}; // { theme: Set of trader IDs }
+
 // LocalStorage keys
 const STORAGE_KEY = 'polymarket_watchlist';
 
@@ -1989,7 +1992,7 @@ const THEME_CHART_COLORS = [
     '#84cc16', // Lime
 ];
 
-// Group traders by their primary market category
+// Group traders by their PRIMARY market category (highest value exposure)
 function groupTradersByTheme() {
     const themeGroups = {};
 
@@ -1997,23 +2000,44 @@ function groupTradersByTheme() {
         const categories = trader.marketCategories || {};
         if (Object.keys(categories).length === 0) continue;
 
-        // Add trader to ALL categories they have exposure to (not just primary)
+        // Find the PRIMARY category (highest value exposure, excluding 'other')
+        let primaryCategory = null;
+        let maxValue = 0;
+
         for (const [cat, data] of Object.entries(categories)) {
-            if (data.count > 0 || data.value > 0) {
-                if (!themeGroups[cat]) {
-                    themeGroups[cat] = [];
-                }
-                themeGroups[cat].push(trader);
+            const value = data.value || 0;
+            // Prefer non-'other' categories, but use 'other' as fallback
+            if (cat !== 'other' && value > maxValue) {
+                maxValue = value;
+                primaryCategory = cat;
             }
+        }
+
+        // If no non-other category found, use 'other' if it exists
+        if (!primaryCategory && categories.other) {
+            primaryCategory = 'other';
+            maxValue = categories.other.value || 0;
+        }
+
+        // Add trader to their primary category only
+        if (primaryCategory) {
+            if (!themeGroups[primaryCategory]) {
+                themeGroups[primaryCategory] = [];
+            }
+            // Store the category value with the trader for sorting
+            themeGroups[primaryCategory].push({
+                ...trader,
+                _themeValue: maxValue
+            });
         }
     }
 
-    // Sort traders within each group by total PnL (descending)
+    // Sort traders within each group by their exposure value in that theme (descending)
     for (const theme of Object.keys(themeGroups)) {
         themeGroups[theme].sort((a, b) => {
-            const pnlA = parseFloat(a.totalPnl) || 0;
-            const pnlB = parseFloat(b.totalPnl) || 0;
-            return pnlB - pnlA;
+            const valueA = a._themeValue || 0;
+            const valueB = b._themeValue || 0;
+            return valueB - valueA;
         });
     }
 
@@ -2048,36 +2072,62 @@ function renderThemeCompareCharts() {
     }
     themeChartInstances.clear();
 
+    // Initialize selected traders for each theme (default: top 3)
+    themes.forEach(theme => {
+        const traders = themeGroups[theme];
+        if (!themeSelectedTraders[theme]) {
+            // Default to top 3 traders by PnL
+            themeSelectedTraders[theme] = new Set(
+                traders.slice(0, 3).map(t => t.id)
+            );
+        }
+    });
+
     // Render chart cards for each theme
     grid.innerHTML = themes.map(theme => {
         const traders = themeGroups[theme];
         const catInfo = MARKET_CATEGORIES[theme] || { name: theme };
         const chartId = `theme-chart-${theme}`;
+        const selectedSet = themeSelectedTraders[theme] || new Set();
+        const selectedCount = selectedSet.size;
 
         return `
             <div class="theme-chart-card" data-theme="${theme}">
                 <div class="theme-chart-header">
                     <div class="theme-chart-title">
                         <h3>${catInfo.name}</h3>
-                        <span class="theme-chart-badge ${theme}">${traders.length} trader${traders.length > 1 ? 's' : ''}</span>
+                        <span class="theme-chart-badge ${theme}">${selectedCount}/${traders.length} shown</span>
+                    </div>
+                    <div class="theme-chart-actions">
+                        <button class="theme-action-btn show-all-btn" data-theme="${theme}" title="Show all traders">Show All</button>
+                        <button class="theme-action-btn clear-btn" data-theme="${theme}" title="Clear all">Clear</button>
                     </div>
                 </div>
                 <div class="theme-chart-container">
                     <canvas id="${chartId}"></canvas>
                 </div>
-                <div class="theme-chart-legend" id="legend-${theme}">
-                    ${traders.slice(0, 10).map((trader, idx) => {
-                        const pnl = getPnLForTimeframe(trader, themeCompareTimeframe);
-                        const pnlClass = pnl >= 0 ? 'positive' : 'negative';
-                        const color = THEME_CHART_COLORS[idx % THEME_CHART_COLORS.length];
-                        return `
-                            <div class="legend-item" data-trader-id="${trader.id}" data-theme="${theme}" title="${trader.name}">
-                                <span class="legend-color" style="background: ${color}"></span>
-                                <span class="legend-name">${truncateTraderName(trader.name)}</span>
-                                <span class="legend-pnl ${pnlClass}">${formatPnLLarge(pnl)}</span>
-                            </div>
-                        `;
-                    }).join('')}
+                <div class="theme-trader-selector" id="selector-${theme}">
+                    <div class="trader-selector-label">Click traders to add/remove from chart:</div>
+                    <div class="trader-selector-list">
+                        ${traders.map((trader, idx) => {
+                            const pnl = getPnLForTimeframe(trader, themeCompareTimeframe);
+                            const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+                            const isSelected = selectedSet.has(trader.id);
+                            const color = THEME_CHART_COLORS[idx % THEME_CHART_COLORS.length];
+                            return `
+                                <div class="trader-selector-item ${isSelected ? 'selected' : ''}"
+                                     data-trader-id="${trader.id}"
+                                     data-theme="${theme}"
+                                     data-color="${color}"
+                                     title="${trader.name}">
+                                    <span class="selector-color" style="background: ${color}"></span>
+                                    <span class="selector-rank">#${idx + 1}</span>
+                                    <span class="selector-name">${truncateTraderName(trader.name)}</span>
+                                    <span class="selector-pnl ${pnlClass}">${formatPnLLarge(pnl)}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
             </div>
         `;
@@ -2086,19 +2136,30 @@ function renderThemeCompareCharts() {
     // Render charts after DOM is updated
     setTimeout(() => {
         themes.forEach(theme => {
-            renderThemeChart(theme, themeGroups[theme], themeCompareTimeframe);
+            const allTraders = themeGroups[theme];
+            const selectedTraders = allTraders.filter(t =>
+                themeSelectedTraders[theme]?.has(t.id)
+            );
+            renderThemeChart(theme, selectedTraders, themeCompareTimeframe, allTraders);
         });
     }, 100);
 }
 
 // Render a multi-line chart for a single theme
-function renderThemeChart(theme, traders, timeframe) {
+function renderThemeChart(theme, traders, timeframe, allThemeTraders = null) {
     const chartId = `theme-chart-${theme}`;
     const canvas = document.getElementById(chartId);
     if (!canvas) return;
 
-    // Limit to top 10 traders
-    const chartTraders = traders.slice(0, 10);
+    // Use passed traders (already filtered by selection)
+    const chartTraders = traders;
+
+    // Create a map of trader ID to original index for consistent colors
+    const traderColorMap = new Map();
+    const themeTraderList = allThemeTraders || traders;
+    themeTraderList.forEach((t, idx) => {
+        traderColorMap.set(t.id, idx);
+    });
 
     // Collect all timestamps from all traders and normalize data
     const allTimestamps = new Set();
@@ -2134,7 +2195,9 @@ function renderThemeChart(theme, traders, timeframe) {
     // Build datasets for each trader
     chartTraders.forEach((trader, idx) => {
         const history = generateTimeframeData(trader, timeframe) || [];
-        const color = THEME_CHART_COLORS[idx % THEME_CHART_COLORS.length];
+        // Use consistent color based on original position in theme group
+        const originalIdx = traderColorMap.get(trader.id) ?? idx;
+        const color = THEME_CHART_COLORS[originalIdx % THEME_CHART_COLORS.length];
 
         // Map data to common timestamps using interpolation
         const dataPoints = sortedTimestamps.map(ts => {
@@ -2286,33 +2349,82 @@ function initThemeCompareListeners() {
         });
     });
 
-    // Legend item click to toggle trader visibility
+    // Event delegation for theme chart interactions
     document.addEventListener('click', function(e) {
-        const legendItem = e.target.closest('.legend-item');
-        if (legendItem) {
-            const traderId = legendItem.dataset.traderId;
-            const theme = legendItem.dataset.theme;
-            const chartId = `theme-chart-${theme}`;
-            const chart = themeChartInstances.get(chartId);
+        // Show All button
+        const showAllBtn = e.target.closest('.show-all-btn');
+        if (showAllBtn) {
+            const theme = showAllBtn.dataset.theme;
+            const themeGroups = groupTradersByTheme();
+            const traders = themeGroups[theme] || [];
 
-            if (chart) {
-                // Find the dataset index
-                const trader = tradersData.find(t => t.id === traderId);
-                if (trader) {
-                    const datasetIndex = chart.data.datasets.findIndex(
-                        ds => ds.label === truncateTraderName(trader.name)
-                    );
+            // Select all traders
+            themeSelectedTraders[theme] = new Set(traders.map(t => t.id));
+            updateThemeChartUI(theme, themeGroups);
+            return;
+        }
 
-                    if (datasetIndex >= 0) {
-                        const meta = chart.getDatasetMeta(datasetIndex);
-                        meta.hidden = !meta.hidden;
-                        legendItem.classList.toggle('disabled', meta.hidden);
-                        chart.update();
-                    }
-                }
+        // Clear button
+        const clearBtn = e.target.closest('.clear-btn');
+        if (clearBtn) {
+            const theme = clearBtn.dataset.theme;
+            const themeGroups = groupTradersByTheme();
+
+            // Clear all selections
+            themeSelectedTraders[theme] = new Set();
+            updateThemeChartUI(theme, themeGroups);
+            return;
+        }
+
+        // Trader selector item click
+        const selectorItem = e.target.closest('.trader-selector-item');
+        if (selectorItem) {
+            const traderId = selectorItem.dataset.traderId;
+            const theme = selectorItem.dataset.theme;
+            const themeGroups = groupTradersByTheme();
+
+            // Toggle trader selection
+            if (!themeSelectedTraders[theme]) {
+                themeSelectedTraders[theme] = new Set();
             }
+
+            if (themeSelectedTraders[theme].has(traderId)) {
+                themeSelectedTraders[theme].delete(traderId);
+                selectorItem.classList.remove('selected');
+            } else {
+                themeSelectedTraders[theme].add(traderId);
+                selectorItem.classList.add('selected');
+            }
+
+            updateThemeChartUI(theme, themeGroups);
+            return;
         }
     });
+}
+
+// Update a single theme chart and its UI after selection change
+function updateThemeChartUI(theme, themeGroups) {
+    const traders = themeGroups[theme] || [];
+    const selectedSet = themeSelectedTraders[theme] || new Set();
+    const selectedTraders = traders.filter(t => selectedSet.has(t.id));
+
+    // Update badge count
+    const card = document.querySelector(`.theme-chart-card[data-theme="${theme}"]`);
+    if (card) {
+        const badge = card.querySelector('.theme-chart-badge');
+        if (badge) {
+            badge.textContent = `${selectedSet.size}/${traders.length} shown`;
+        }
+
+        // Update selector items
+        card.querySelectorAll('.trader-selector-item').forEach(item => {
+            const traderId = item.dataset.traderId;
+            item.classList.toggle('selected', selectedSet.has(traderId));
+        });
+    }
+
+    // Re-render the chart
+    renderThemeChart(theme, selectedTraders, themeCompareTimeframe, traders);
 }
 
 // Initialize app
@@ -2324,7 +2436,7 @@ async function init() {
     initThemeCompareListeners();
     setupAutoRefresh();
     updateWatchlistDisplay();
-    await loadData();
+    await loadData(true);
 }
 
 // Start the app
